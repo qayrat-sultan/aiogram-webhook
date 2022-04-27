@@ -28,7 +28,6 @@ collbans = db.bans
 collfunc = db.func
 
 
-
 def natist_g(name):
     get_natist = requests.get(f'https://api.nationalize.io/?name={name}')
     result = get_natist.json()
