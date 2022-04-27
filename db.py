@@ -4,9 +4,10 @@
 # cur = con.cursor()
 
 # # Create table
+
 # cur.execute('''CREATE TABLE users
 #                (id int, name text)''')
-#
+
 # # Insert a row of data
 # cur.execute("INSERT INTO stocks VALUES ('2006-01-05','BUY','RHAT',100,35.14)")
 #
