@@ -12,7 +12,7 @@ https://api.nationalize.io/?name=gayrat
 
 import telebot
 import requests
-import pprint
+import pprint # noqa
 from decouple import config
 import pymongo
 
