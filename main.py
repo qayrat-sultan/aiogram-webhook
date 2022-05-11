@@ -9,8 +9,9 @@
 данного имени к какой то нации (попробуйте назвать, что Ваш учитель нацист:), я больше заданий дам)
 https://api.nationalize.io/?name=gayrat
 """
-
-import telebot
+import logging
+# import telebot
+from aiogram import Bot, Dispatcher, executor, types
 import requests
 import pprint # noqa
 from decouple import config
@@ -18,7 +19,10 @@ import pymongo
 
 # BOT CONFIGS
 API_TOKEN = config('TOKEN')
-bot = telebot.TeleBot(API_TOKEN)
+# bot = telebot.TeleBot(API_TOKEN)
+# Initialize bot and dispatcher
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
 
 # DB CONFIGS
 client = pymongo.MongoClient(config('MONGO'))
@@ -28,8 +32,7 @@ collbans = db.bans
 collfunc = db.func
 
 
-
-def natist_g(name):
+async def natist_g(name):
     get_natist = requests.get(f'https://api.nationalize.io/?name={name}')
     result = get_natist.json()
     x = ''
@@ -39,7 +42,7 @@ def natist_g(name):
     return x
 
 
-def bitcoin_rate():
+async def bitcoin_rate():
     get_btc = requests.get('https://api.coinbase.com/v2/prices/USD/spot')
     data = get_btc.json()['data']
     for i in data:
@@ -48,7 +51,7 @@ def bitcoin_rate():
             return i
 
 
-def music(parametr):
+async def music(parametr):
     get_artist = requests.get(f'https://itunes.apple.com/search?term={parametr}&media=music&limit=10')
     data = get_artist.json()['results']
     songs = ''
@@ -59,7 +62,7 @@ def music(parametr):
     # pprint.pprint(data)
 
 
-def universities():
+async def universities():
     get_univ = requests.get('http://universities.hipolabs.com/search?country=Uzbekistan')
     univ_str = ''
     data = get_univ.json()
@@ -74,10 +77,10 @@ def universities():
     return univ_str
 
 
-# universities()
+# await universities()
 # Handle '/start' and '/help'
 
-def user():
+async def user():
     get_user = requests.get('https://randomuser.me/api/')
     data = get_user.json()['results']
     full_user_data = ''
@@ -94,8 +97,8 @@ def user():
     return full_user_data
 
 
-@bot.message_handler(commands=['user'])
-def send_random_user(message):
+@dp.message_handler(commands=['user'])
+async def send_random_user(message):
     x = user()
     func_user = collfunc.find_one({"id": message.chat.id})
     if not func_user:
@@ -103,117 +106,122 @@ def send_random_user(message):
     else:
         # counter = func_user['count']  # 1
         collfunc.update_one({"id": message.chat.id}, {"$inc": {"count": 1}})
-    bot.send_message(message.chat.id, x)
+    await bot.send_message(message.chat.id, x)
 
 
-@bot.message_handler(commands=['start'])
-def send_random_user(message):
+@dp.message_handler(commands=['start'])
+async def send_random_user(message):
     user_id = collusers.find_one({"id": message.chat.id})
     if not user_id:
         collusers.insert_one({'id': message.chat.id,
                               'name': message.from_user.first_name})
-    bot.send_message(message.chat.id, "Hello")
+    await bot.send_message(message.chat.id, "Hello")
 
 
-@bot.message_handler(commands=['del'])
-def delete_user_data_from_db(msg):
-    bot.send_message(msg.chat.id, "Successfully deleted!")
+@dp.message_handler(commands=['del'])
+async def delete_user_data_from_db(msg):
+    await bot.send_message(msg.chat.id, "Successfully deleted!")
     collusers.delete_one({"id": msg.chat.id})
 
 
-@bot.message_handler(commands=['update'])  # /update New_name
-def update_user_data_from_db(message):
+@dp.message_handler(commands=['update'])  # /update New_name
+async def update_user_data_from_db(message):
     updated_name = message.text.split()
     if len(updated_name) > 1:
         x = updated_name[1]
         collusers.update_one({"id": message.chat.id}, {"$set": {"name": x}})  # first dict is finding collection, second setting collection
-        bot.send_message(message.chat.id, "Successfully updated!")
+        await bot.send_message(message.chat.id, "Successfully updated!")
     else:
-        bot.send_message(message.chat.id, "Please send me supported command For example:\n/me *Name*", parse_mode="MarkdownV2")
+        await bot.send_message(message.chat.id, "Please send me supported command For example:\n/me *Name*",
+                         parse_mode="MarkdownV2")
 
-@bot.message_handler(commands=['help'])
-def help_text(message):
-    bot.send_message(message.chat.id, "/me {имя} - Команда для того чтобы определить к какой нации относится данное имя")
 
-@bot.message_handler(commands=['me'])
-def send_random_user(message):
+@dp.message_handler(commands=['help'])
+async def help_text(message):
+    await bot.send_message(message.chat.id,
+                     "/me {имя} - Команда для того чтобы определить к какой нации относится данное имя")
+
+
+@dp.message_handler(commands=['me'])
+async def send_random_user(message):
     # natist_name = message.from_user.first_name
     natist_name = message.text.split()
     if len(natist_name) > 1:
         natist_name = natist_name[1]
         x = natist_g(natist_name)
-        bot.send_message(message.chat.id, x)
+        await bot.send_message(message.chat.id, x)
     else:
-        bot.send_message(message.chat.id, "Please send me supported command For example:\n/me *Name*", parse_mode="MarkdownV2")
+        await bot.send_message(message.chat.id, "Please send me supported command For example:\n/me *Name*",
+                         parse_mode="MarkdownV2")
 
 
-@bot.message_handler(func=lambda message: message.text == "Регистрация")
-def send_welcome(message: telebot.types.Message):
-    p = bot.send_message(message.chat.id, "Введите Ваше имя")
-    bot.register_next_step_handler(p, set_min_reg)
+@dp.message_handler(lambda message: "Регистрация" in message.text)
+async def send_welcome(message: types.Message):
+    p = await bot.send_message(message.chat.id, "Введите Ваше имя")
+    await bot.register_next_step_handler(p, set_min_reg)
 
 
-def set_min_reg(message: telebot.types.Message):
+async def set_min_reg(message: types.Message):
     name = message.text
     x = collusers.find_one({"id": message.chat.id})
     collusers.update_one({"id": message.chat.id}, {"$set": {"id": message.chat.id, "name": name}})
 
-    bot.send_message(message.chat.id, "SUCCESSFULLY CHANGED")
-    # retype = bot.send_message(message.chat.id,
+    await bot.send_message(message.chat.id, "SUCCESSFULLY CHANGED")
+    # retype = await bot.send_message(message.chat.id,
     #                           "Минимальный возраст должен состоять только из цифр")
     # bot.register_next_step_handler(retype, set_min_reg)
 
 
-def set_max_age(message):
+async def set_max_age(message):
     if not message.text.isdigit():
-        retype = bot.send_message(message.chat.id,
+        retype = await bot.send_message(message.chat.id,
                                   "Максимальный возраст должен состоять только из цифр")
         bot.register_next_step_handler(retype, set_max_age)
     else:
         ## pass save method for this DB
-        bot.send_message(message.chat.id, "Успешно сохранен")
+        await bot.send_message(message.chat.id, "Успешно сохранен")
 
 
-@bot.message_handler(commands=['btc'])
-def send_btc_rate(message):
+@dp.message_handler(commands=['btc'])
+async def send_btc_rate(message):
     btc = bitcoin_rate()  # dict
-    bot.send_message(message.chat.id, f"Bitcoint currency: {btc['amount']}")
+    await bot.send_message(message.chat.id, f"Bitcoint currency: {btc['amount']}")
 
 
-@bot.message_handler(commands=['music'])
-def send_songs(message):
+@dp.message_handler(commands=['music'])
+async def send_songs(message):
     x = message.text.split()
     music_get = music(x)
-    bot.send_message(message.chat.id, music_get)
+    await bot.send_message(message.chat.id, music_get)
 
 
-@bot.message_handler(commands=['univer'])
-def send_songs(message):
-    univ_str = universities()
-    bot.send_message(message.chat.id, univ_str, disable_web_page_preview=True)
+@dp.message_handler(commands=['univer'])
+async def send_songs(message):
+    univ_str = await universities()
+    await bot.send_message(message.chat.id, univ_str, disable_web_page_preview=True)
 
 
-def weather():
+async def weather():
     get_weather = requests.get('https://www.7timer.info/bin/astro.php?lon=69.2&lat=41.3&ac=0&unit=metric&output=json')
     data = get_weather.json()
     return data['dataseries'][0]['temp2m']
 
 
-@bot.message_handler(commands=['pogoda'])
-def send_weather_temp(message):
+@dp.message_handler(commands=['pogoda'])
+async def send_weather_temp(message):
     # pprint.pprint(message.json)
     # print(message.text.split())
     x = weather()  # dict
     # bitcoin_rate()
-    bot.send_message(message.chat.id, f"Weather temp: {x}  {weather()}")
+    await bot.send_message(message.chat.id, f"Weather temp: {x}  {weather()}")
     print(x)
 
 
 # Handle all other messages with content_type 'text' (content_types defaults to ['text'])
-@bot.message_handler(func=lambda message: True)
-def echo_message(message):
+@dp.message_handler()
+async def echo_message(message):
     print(message.text)
-    bot.reply_to(message, message.text)
+    await message.answer(message.text)
 
 
 # bot.enable_save_next_step_handlers(delay=2)
@@ -221,4 +229,5 @@ def echo_message(message):
 
 print("Bot started")
 
-bot.infinity_polling()
+if __name__ == '__main__':
+    executor.start_polling(dp, skip_updates=True)
