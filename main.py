@@ -23,7 +23,7 @@ API_TOKEN = config('TOKEN')
 
 # webhook settings
 WEBHOOK_HOST = 'https://webhooktgbot.herokuapp.com'
-WEBHOOK_PATH = ''
+WEBHOOK_PATH = '/'
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 # webserver settings
@@ -262,4 +262,3 @@ if __name__ == '__main__':
         host=WEBAPP_HOST,
         port=WEBAPP_PORT,
     )
-    executor.start_polling(dp, skip_updates=True)
