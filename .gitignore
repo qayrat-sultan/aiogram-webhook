@@ -1,2 +1,7 @@
 .env
 venv
+*.xml
+*.pyc
+__pycache__
+*.egg-info
+*.iml

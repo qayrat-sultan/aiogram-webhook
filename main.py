@@ -9,9 +9,10 @@
 данного имени к какой то нации (попробуйте назвать, что Ваш учитель нацист:), я больше заданий дам)
 https://api.nationalize.io/?name=gayrat
 """
-import logging
-# import telebot
-from aiogram import Bot, Dispatcher, executor, types
+import os
+
+from aiogram import Bot, Dispatcher, types
+from aiogram.utils import executor
 from aiogram.utils.executor import start_webhook
 import requests
 import pprint # noqa
@@ -22,13 +23,13 @@ import pymongo
 API_TOKEN = config('TOKEN')
 
 # webhook settings
-WEBHOOK_HOST = 'https://webhooktgbot.herokuapp.com'
+WEBHOOK_HOST = config('HEROKU_APP_URL')
 WEBHOOK_PATH = '/'
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 # webserver settings
-WEBAPP_HOST = 'localhost'  # or ip
-WEBAPP_PORT = 3001
+WEBAPP_HOST = '0.0.0.0'  # or ip
+WEBAPP_PORT = os.getenv('PORT', default=8000)
 
 
 # bot = telebot.TeleBot(API_TOKEN)
@@ -170,7 +171,7 @@ async def send_random_user(message):
 @dp.message_handler(lambda message: "Регистрация" in message.text)
 async def send_welcome(message: types.Message):
     p = await bot.send_message(message.chat.id, "Введите Ваше имя")
-    await bot.register_next_step_handler(p, set_min_reg)
+    # TODO: After change this to state, it will be impossible to send message without digits
 
 
 async def set_min_reg(message: types.Message):
@@ -188,7 +189,7 @@ async def set_max_age(message):
     if not message.text.isdigit():
         retype = await bot.send_message(message.chat.id,
                                   "Максимальный возраст должен состоять только из цифр")
-        bot.register_next_step_handler(retype, set_max_age)
+        # TODO: After change this to state, it will be impossible to send message without digits
     else:
         ## pass save method for this DB
         await bot.send_message(message.chat.id, "Успешно сохранен")
@@ -241,6 +242,7 @@ async def echo_message(message):
 
 
 async def on_startup(dp):
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
     print("Bot started")
 
 async def on_shutdown(dp):
@@ -253,6 +255,7 @@ async def on_shutdown(dp):
 
 
 if __name__ == '__main__':
+    # executor.start_polling(dp, on_startup=on_startup, on_shutdown=on_shutdown)
     start_webhook(
         dispatcher=dp,
         webhook_path=WEBHOOK_PATH,
