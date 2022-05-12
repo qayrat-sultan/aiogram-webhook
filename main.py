@@ -12,6 +12,7 @@ https://api.nationalize.io/?name=gayrat
 import logging
 # import telebot
 from aiogram import Bot, Dispatcher, executor, types
+from aiogram.utils.executor import start_webhook
 import requests
 import pprint # noqa
 from decouple import config
@@ -19,6 +20,17 @@ import pymongo
 
 # BOT CONFIGS
 API_TOKEN = config('TOKEN')
+
+# webhook settings
+WEBHOOK_HOST = 'https://webhooktgbot.herokuapp.com'
+WEBHOOK_PATH = ''
+WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
+
+# webserver settings
+WEBAPP_HOST = 'localhost'  # or ip
+WEBAPP_PORT = 3001
+
+
 # bot = telebot.TeleBot(API_TOKEN)
 # Initialize bot and dispatcher
 bot = Bot(token=API_TOKEN)
@@ -148,7 +160,7 @@ async def send_random_user(message):
     natist_name = message.text.split()
     if len(natist_name) > 1:
         natist_name = natist_name[1]
-        x = natist_g(natist_name)
+        x = await natist_g(natist_name)
         await bot.send_message(message.chat.id, x)
     else:
         await bot.send_message(message.chat.id, "Please send me supported command For example:\n/me *Name*",
@@ -184,7 +196,7 @@ async def set_max_age(message):
 
 @dp.message_handler(commands=['btc'])
 async def send_btc_rate(message):
-    btc = bitcoin_rate()  # dict
+    btc = await bitcoin_rate()  # dict
     await bot.send_message(message.chat.id, f"Bitcoint currency: {btc['amount']}")
 
 
@@ -227,7 +239,27 @@ async def echo_message(message):
 # bot.enable_save_next_step_handlers(delay=2)
 # bot.load_next_step_handlers()
 
-print("Bot started")
+
+async def on_startup(dp):
+    print("Bot started")
+
+async def on_shutdown(dp):
+    print("Bot stopped")
+    await bot.delete_webhook()
+
+    # Close DB connection (if used)
+    await dp.storage.close()
+    await dp.storage.wait_closed()
+
 
 if __name__ == '__main__':
+    start_webhook(
+        dispatcher=dp,
+        webhook_path=WEBHOOK_PATH,
+        on_startup=on_startup,
+        on_shutdown=on_shutdown,
+        skip_updates=True,
+        host=WEBAPP_HOST,
+        port=WEBAPP_PORT,
+    )
     executor.start_polling(dp, skip_updates=True)
